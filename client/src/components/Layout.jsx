@@ -38,6 +38,22 @@ export default function Layout({ user, onLogout, children }) {
               {f.title}
             </button>
           ))}
+
+          <button
+            className={`sidebar-link ${location.pathname === '/ai-history' ? 'active' : ''}`}
+            onClick={() => navigate('/ai-history')}
+          >
+            <span style={{ fontSize: '16px', width: '18px', textAlign: 'center' }}>🤖</span>
+            AI History
+          </button>
+
+          <button
+            className={`sidebar-link ${location.pathname === '/ai-predictive' ? 'active' : ''}`}
+            onClick={() => navigate('/ai-predictive')}
+          >
+            <span style={{ fontSize: '16px', width: '18px', textAlign: 'center' }}>🔮</span>
+            AI Predictive
+          </button>
         </div>
 
         <div className="sidebar-user">

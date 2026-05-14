@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -25,11 +26,17 @@ import translationRoutes from './routes/translation.js';
 import landscapeRoutes from './routes/landscape.js';
 import renewalRoutes from './routes/renewal.js';
 import collaborationRoutes from './routes/collaboration.js';
+import aiRoutes from './routes/ai.js';
 
 const app = express();
 const PORT = process.env.BACKEND_PORT || 3001;
 
-app.use(cors());
+// Security middleware
+app.use(helmet());
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  credentials: true,
+}));
 app.use(express.json({ limit: '10mb' }));
 
 // Routes
@@ -49,10 +56,35 @@ app.use('/api/translation', translationRoutes);
 app.use('/api/landscape', landscapeRoutes);
 app.use('/api/renewal', renewalRoutes);
 app.use('/api/collaboration', collaborationRoutes);
+app.use('/api/ai', aiRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+
+// === Custom Feature Mounts (batch_06) ===
+import('./routes/customFeat01_AgenticPatentProsecution.js').then(m => app.use('/api/cf-agentic-patent-prosecution', m.default));
+import('./routes/customFeat02_NoveltyScoringEngine.js').then(m => app.use('/api/cf-novelty-scoring-engine', m.default));
+import('./routes/customFeat03_CompetitorThreatIntelligence.js').then(m => app.use('/api/cf-competitor-threat-intelligence', m.default));
+import('./routes/customFeat04_InternationalFilingOptimizer.js').then(m => app.use('/api/cf-international-filing-optimizer', m.default));
+import('./routes/customFeat05_ClaimInfringementChecker.js').then(m => app.use('/api/cf-claim-infringement-checker', m.default));
+
+
+// === Batch 06 Gaps & Frontend Mounts ===
+app.use('/api/gap-claims-without-claim', require('./routes/gapFeat_claims_without_claim'));
+app.use('/api/gap-landscape-without-market', require('./routes/gapFeat_landscape_without_market'));
+app.use('/api/gap-filing-without-rejection', require('./routes/gapFeat_filing_without_rejection'));
+app.use('/api/gap-competitor-without-competitor', require('./routes/gapFeat_competitor_without_competitor'));
+app.use('/api/gap-infringement-without-infringement', require('./routes/gapFeat_infringement_without_infringement'));
+app.use('/api/gap-no-uspto-integration-automated-filing-status-track', require('./routes/gapFeat_no_uspto_integration_automated_filing_status_track'));
+app.use('/api/gap-no-foreign-patent-coordination-pct-filing-country', require('./routes/gapFeat_no_foreign_patent_coordination_pct_filing_country'));
+app.use('/api/gap-no-integration-with-scientific-literature-database', require('./routes/gapFeat_no_integration_with_scientific_literature_database'));
+app.use('/api/gap-limited-inventor-management-no-inventor-contributi', require('./routes/gapFeat_limited_inventor_management_no_inventor_contributi'));
+app.use('/api/gap-no-licensing-marketplace', require('./routes/gapFeat_no_licensing_marketplace'));
+app.use('/api/gap-limited-frontend-only-4-pages-for-a-18', require('./routes/gapFeat_limited_frontend_only_4_pages_for_a_18'));
+app.use('/api/gap-no-webhooks-for-uspto-docket-updates', require('./routes/gapFeat_no_webhooks_for_uspto_docket_updates'));
+app.use('/api/gap-no-notifications-layer-for-filing-deadlines', require('./routes/gapFeat_no_notifications_layer_for_filing_deadlines'));
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

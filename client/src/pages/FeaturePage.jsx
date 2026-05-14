@@ -12,6 +12,9 @@ export default function FeaturePage() {
   const feature = getFeature(featureKey);
 
   const [items, setItems] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -19,21 +22,30 @@ export default function FeaturePage() {
   const [aiResult, setAiResult] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
+  const [priorArtResults, setPriorArtResults] = useState(null);
 
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (p = 1) => {
     try {
       setLoading(true);
-      const res = await api.get(feature.apiPath);
-      setItems(res.data);
+      const res = await api.get(feature.apiPath, { params: { page: p, limit: 20 } });
+      const d = res.data;
+      if (d.data && d.totalPages !== undefined) {
+        setItems(d.data);
+        setPage(d.page);
+        setTotalPages(d.totalPages);
+        setTotal(d.total);
+      } else {
+        setItems(Array.isArray(d) ? d : []);
+      }
     } catch (err) {
       console.error('Failed to fetch items:', err);
     } finally {
       setLoading(false);
     }
-  }, [feature.apiPath]);
+  }, [feature?.apiPath]);
 
   useEffect(() => {
-    if (feature) fetchItems();
+    if (feature) fetchItems(1);
   }, [feature, fetchItems]);
 
   if (!feature) {
@@ -78,11 +90,16 @@ export default function FeaturePage() {
     if (!aiPrompt.trim()) return;
     setAiLoading(true);
     setAiResult(null);
+    setPriorArtResults(null);
     try {
       const res = await api.post(`${feature.apiPath}/ai-analyze`, {
         prompt: aiPrompt,
       });
       setAiResult(res.data);
+      // If prior-art or patent-search, try to show structured results
+      if (res.data.parsed?.relevant_patents) {
+        setPriorArtResults(res.data.parsed);
+      }
     } catch (err) {
       setAiResult({ success: false, result: err.response?.data?.error || err.message });
     } finally {
@@ -93,15 +110,33 @@ export default function FeaturePage() {
   const handleAIAnalyzeItem = async (item) => {
     setAiLoading(true);
     setAiResult(null);
+    setPriorArtResults(null);
     try {
       const res = await api.post(`${feature.apiPath}/${item.id}/ai-analyze`, {
         action: `Analyze this ${feature.title.toLowerCase()} item and provide detailed insights, recommendations, and next steps.`,
       });
       setAiResult(res.data);
+      if (res.data.parsed?.relevant_patents) {
+        setPriorArtResults(res.data.parsed);
+      }
     } catch (err) {
       setAiResult({ success: false, result: err.response?.data?.error || err.message });
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const handleExportPDF = async (item) => {
+    try {
+      const res = await api.get(`/ai/patents/${item.id}/export-pdf`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `patent-${item.id}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('PDF export failed: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -117,6 +152,8 @@ export default function FeaturePage() {
     }
     return String(value);
   };
+
+  const isPriorArtOrSearch = ['prior-art', 'patent-search'].includes(featureKey);
 
   return (
     <div className="animate-in">
@@ -191,6 +228,66 @@ export default function FeaturePage() {
         </div>
 
         {aiResult && <AIResultDisplay result={aiResult} />}
+
+        {/* Structured Prior Art / Patent Search Results */}
+        {priorArtResults && (
+          <div style={{ marginTop: '20px' }}>
+            <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <div style={{ background: 'rgba(34,197,94,0.1)', padding: '12px 20px', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '28px', fontWeight: 700, color: '#22c55e' }}>{priorArtResults.novelty_score}</div>
+                <div style={{ fontSize: '11px', color: '#888' }}>Novelty Score</div>
+              </div>
+              <div style={{ background: 'rgba(99,102,241,0.1)', padding: '12px 20px', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '28px', fontWeight: 700, color: '#6366f1' }}>{priorArtResults.relevant_patents?.length || 0}</div>
+                <div style={{ fontSize: '11px', color: '#888' }}>Patents Found</div>
+              </div>
+            </div>
+
+            {priorArtResults.relevant_patents?.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontWeight: 600, marginBottom: '12px', fontSize: '14px' }}>Relevant Prior Art Patents</div>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {priorArtResults.relevant_patents.map((p, i) => (
+                    <div key={i} style={{
+                      background: 'var(--bg-input, #0d0d1a)',
+                      border: '1px solid var(--border, #333)',
+                      borderRadius: '8px',
+                      padding: '14px 16px',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, color: '#a5b4fc', fontSize: '13px', marginBottom: '2px' }}>{p.patent_number}</div>
+                          <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>{p.title}</div>
+                          {p.assignee && <div style={{ fontSize: '12px', color: '#888' }}>Assignee: {p.assignee}</div>}
+                          {p.filing_date && <div style={{ fontSize: '12px', color: '#888' }}>Filed: {p.filing_date}</div>}
+                          <div style={{ fontSize: '12px', color: '#ccc', marginTop: '6px' }}>{p.abstract}</div>
+                        </div>
+                        <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                          <div style={{
+                            fontSize: '18px', fontWeight: 700,
+                            color: p.relevance_score >= 80 ? '#ef4444' : p.relevance_score >= 60 ? '#f59e0b' : '#22c55e'
+                          }}>
+                            {p.relevance_score || p.similarity_score}%
+                          </div>
+                          <div style={{ fontSize: '10px', color: '#888' }}>Relevance</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {priorArtResults.recommendations?.length > 0 && (
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Recommendations</div>
+                <ul style={{ paddingLeft: '20px', color: '#ccc' }}>
+                  {priorArtResults.recommendations.map((r, i) => <li key={i} style={{ marginBottom: '4px' }}>{r}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Data Table */}
@@ -218,22 +315,56 @@ export default function FeaturePage() {
                   <th key={col.key}>{col.label}</th>
                 ))}
                 <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item, idx) => (
                 <tr key={item.id} onClick={() => setSelectedItem(item)}>
-                  <td style={{ color: 'var(--text-muted)' }}>{idx + 1}</td>
+                  <td style={{ color: 'var(--text-muted)' }}>{(page - 1) * 20 + idx + 1}</td>
                   {feature.columns.map(col => (
                     <td key={col.key}>{formatCellValue(col, item[col.key])}</td>
                   ))}
                   <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
                     {new Date(item.created_at).toLocaleDateString()}
                   </td>
+                  <td onClick={e => e.stopPropagation()}>
+                    <button
+                      className="btn btn-sm btn-secondary"
+                      onClick={() => handleExportPDF(item)}
+                      style={{ fontSize: '11px', padding: '3px 8px' }}
+                      title="Export PDF"
+                    >
+                      PDF
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+
+          {/* Pagination controls */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', marginTop: '16px', padding: '8px' }}>
+              <button
+                className="btn btn-sm btn-secondary"
+                onClick={() => fetchItems(page - 1)}
+                disabled={page <= 1}
+              >
+                Prev
+              </button>
+              <span style={{ padding: '0 16px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                Page {page} of {totalPages} ({total} total)
+              </span>
+              <button
+                className="btn btn-sm btn-secondary"
+                onClick={() => fetchItems(page + 1)}
+                disabled={page >= totalPages}
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
 
