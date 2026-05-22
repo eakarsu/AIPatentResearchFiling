@@ -2,25 +2,22 @@
 // Gap Feature: No licensing marketplace
 // No licensing marketplace
 // Project: AIPatentResearchFiling
-// Auto-generated v0 scaffold — review before production use.
+// ESM version (converted from CJS scaffold).
 
-const express = require('express');
+import express from 'express';
+import { authenticate } from '../middleware/auth.js';
+import { aiRateLimiter as _aiRateLimiter } from '../middleware/rateLimiter.js';
+import pool from '../models/db.js';
+
 const router = express.Router();
-const auth = require('../middleware/auth');
-let aiRateLimiter = null; try { aiRateLimiter = require('../middleware/rateLimiter').aiRateLimiter; } catch (_) {}
-let _pool = null; try { _pool = require('../schema').pool; } catch (_) { try { _pool = require('../db').pool; } catch (_) {} }
-
-
-let fetchFn = (typeof globalThis !== 'undefined' && globalThis.fetch) ? globalThis.fetch : (typeof global !== 'undefined' ? global.fetch : null);
-if (!fetchFn) {
-  try { fetchFn = require('node-fetch'); } catch (_) { fetchFn = null; }
-}
+const auth = authenticate;
+const aiRateLimiter = _aiRateLimiter;
+const _pool = pool;
 
 async function callLLM(systemPrompt, userPrompt) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured');
-  if (!fetchFn) throw new Error('fetch not available — install node-fetch or use Node 18+');
-  const res = await fetchFn('https://openrouter.ai/api/v1/chat/completions', {
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -69,7 +66,7 @@ async function ensureTable() {
   }
 }
 
-router.post('/run', auth, (req, res, next) => (aiRateLimiter ? aiRateLimiter(req, res, next) : next()), async (req, res) => {
+router.post('/run', auth, aiRateLimiter, async (req, res) => {
   try {
     const payload = req.body || {};
     const systemPrompt = `You are an expert assistant for the gap feature: 'No licensing marketplace'.\nProject: AIPatentResearchFiling.\nContext: No licensing marketplace\nReturn structured JSON with keys: { summary: string, recommendations: string[], risks: string[], next_steps: string[] }.`;
@@ -96,7 +93,7 @@ router.post('/run', auth, (req, res, next) => (aiRateLimiter ? aiRateLimiter(req
   }
 });
 
-router.get('/history', auth, (req, res, next) => (aiRateLimiter ? aiRateLimiter(req, res, next) : next()), async (req, res) => {
+router.get('/history', auth, aiRateLimiter, async (req, res) => {
   try {
     await ensureTable();
     if (!_pool || !_tableReady) return res.json({ items: [] });
@@ -110,4 +107,4 @@ router.get('/history', auth, (req, res, next) => (aiRateLimiter ? aiRateLimiter(
   }
 });
 
-module.exports = router;
+export default router;

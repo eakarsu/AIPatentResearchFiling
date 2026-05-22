@@ -72,19 +72,25 @@ import('./routes/customFeat05_ClaimInfringementChecker.js').then(m => app.use('/
 
 
 // === Batch 06 Gaps & Frontend Mounts ===
-app.use('/api/gap-claims-without-claim', require('./routes/gapFeat_claims_without_claim'));
-app.use('/api/gap-landscape-without-market', require('./routes/gapFeat_landscape_without_market'));
-app.use('/api/gap-filing-without-rejection', require('./routes/gapFeat_filing_without_rejection'));
-app.use('/api/gap-competitor-without-competitor', require('./routes/gapFeat_competitor_without_competitor'));
-app.use('/api/gap-infringement-without-infringement', require('./routes/gapFeat_infringement_without_infringement'));
-app.use('/api/gap-no-uspto-integration-automated-filing-status-track', require('./routes/gapFeat_no_uspto_integration_automated_filing_status_track'));
-app.use('/api/gap-no-foreign-patent-coordination-pct-filing-country', require('./routes/gapFeat_no_foreign_patent_coordination_pct_filing_country'));
-app.use('/api/gap-no-integration-with-scientific-literature-database', require('./routes/gapFeat_no_integration_with_scientific_literature_database'));
-app.use('/api/gap-limited-inventor-management-no-inventor-contributi', require('./routes/gapFeat_limited_inventor_management_no_inventor_contributi'));
-app.use('/api/gap-no-licensing-marketplace', require('./routes/gapFeat_no_licensing_marketplace'));
-app.use('/api/gap-limited-frontend-only-4-pages-for-a-18', require('./routes/gapFeat_limited_frontend_only_4_pages_for_a_18'));
-app.use('/api/gap-no-webhooks-for-uspto-docket-updates', require('./routes/gapFeat_no_webhooks_for_uspto_docket_updates'));
-app.use('/api/gap-no-notifications-layer-for-filing-deadlines', require('./routes/gapFeat_no_notifications_layer_for_filing_deadlines'));
+// Gap routes are CommonJS scaffolds; skip if they fail to load under ESM.
+const _gapMounts = [
+  ['/api/gap-claims-without-claim', './routes/gapFeat_claims_without_claim.js'],
+  ['/api/gap-landscape-without-market', './routes/gapFeat_landscape_without_market.js'],
+  ['/api/gap-filing-without-rejection', './routes/gapFeat_filing_without_rejection.js'],
+  ['/api/gap-competitor-without-competitor', './routes/gapFeat_competitor_without_competitor.js'],
+  ['/api/gap-infringement-without-infringement', './routes/gapFeat_infringement_without_infringement.js'],
+  ['/api/gap-no-uspto-integration-automated-filing-status-track', './routes/gapFeat_no_uspto_integration_automated_filing_status_track.js'],
+  ['/api/gap-no-foreign-patent-coordination-pct-filing-country', './routes/gapFeat_no_foreign_patent_coordination_pct_filing_country.js'],
+  ['/api/gap-no-integration-with-scientific-literature-database', './routes/gapFeat_no_integration_with_scientific_literature_database.js'],
+  ['/api/gap-limited-inventor-management-no-inventor-contributi', './routes/gapFeat_limited_inventor_management_no_inventor_contributi.js'],
+  ['/api/gap-no-licensing-marketplace', './routes/gapFeat_no_licensing_marketplace.js'],
+  ['/api/gap-limited-frontend-only-4-pages-for-a-18', './routes/gapFeat_limited_frontend_only_4_pages_for_a_18.js'],
+  ['/api/gap-no-webhooks-for-uspto-docket-updates', './routes/gapFeat_no_webhooks_for_uspto_docket_updates.js'],
+  ['/api/gap-no-notifications-layer-for-filing-deadlines', './routes/gapFeat_no_notifications_layer_for_filing_deadlines.js'],
+];
+for (const [mountPath, modPath] of _gapMounts) {
+  import(modPath).then(m => app.use(mountPath, m.default || m)).catch(() => {});
+}
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
