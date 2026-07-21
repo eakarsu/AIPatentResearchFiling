@@ -27,9 +27,13 @@ import landscapeRoutes from './routes/landscape.js';
 import renewalRoutes from './routes/renewal.js';
 import collaborationRoutes from './routes/collaboration.js';
 import aiRoutes from './routes/ai.js';
+import governedPatentMatters from './governance/index.cjs';
 
 const app = express();
 const PORT = process.env.BACKEND_PORT || 3001;
+if ((process.env.JWT_SECRET || '').length < 32 || !process.env.GOVERNANCE_TENANT_ID) {
+  throw new Error('JWT_SECRET (32+ characters) and GOVERNANCE_TENANT_ID are required');
+}
 
 // Security middleware
 app.use(helmet());
@@ -57,39 +61,25 @@ app.use('/api/landscape', landscapeRoutes);
 app.use('/api/renewal', renewalRoutes);
 app.use('/api/collaboration', collaborationRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/governed-patent-matters', governedPatentMatters);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 
-// === Custom Feature Mounts (batch_06) ===
-import('./routes/customFeat01_AgenticPatentProsecution.js').then(m => app.use('/api/cf-agentic-patent-prosecution', m.default));
-import('./routes/customFeat02_NoveltyScoringEngine.js').then(m => app.use('/api/cf-novelty-scoring-engine', m.default));
-import('./routes/customFeat03_CompetitorThreatIntelligence.js').then(m => app.use('/api/cf-competitor-threat-intelligence', m.default));
-import('./routes/customFeat04_InternationalFilingOptimizer.js').then(m => app.use('/api/cf-international-filing-optimizer', m.default));
-import('./routes/customFeat05_ClaimInfringementChecker.js').then(m => app.use('/api/cf-claim-infringement-checker', m.default));
-
-
-// === Batch 06 Gaps & Frontend Mounts ===
-// Gap routes are CommonJS scaffolds; skip if they fail to load under ESM.
-const _gapMounts = [
-  ['/api/gap-claims-without-claim', './routes/gapFeat_claims_without_claim.js'],
-  ['/api/gap-landscape-without-market', './routes/gapFeat_landscape_without_market.js'],
-  ['/api/gap-filing-without-rejection', './routes/gapFeat_filing_without_rejection.js'],
-  ['/api/gap-competitor-without-competitor', './routes/gapFeat_competitor_without_competitor.js'],
-  ['/api/gap-infringement-without-infringement', './routes/gapFeat_infringement_without_infringement.js'],
-  ['/api/gap-no-uspto-integration-automated-filing-status-track', './routes/gapFeat_no_uspto_integration_automated_filing_status_track.js'],
-  ['/api/gap-no-foreign-patent-coordination-pct-filing-country', './routes/gapFeat_no_foreign_patent_coordination_pct_filing_country.js'],
-  ['/api/gap-no-integration-with-scientific-literature-database', './routes/gapFeat_no_integration_with_scientific_literature_database.js'],
-  ['/api/gap-limited-inventor-management-no-inventor-contributi', './routes/gapFeat_limited_inventor_management_no_inventor_contributi.js'],
-  ['/api/gap-no-licensing-marketplace', './routes/gapFeat_no_licensing_marketplace.js'],
-  ['/api/gap-limited-frontend-only-4-pages-for-a-18', './routes/gapFeat_limited_frontend_only_4_pages_for_a_18.js'],
-  ['/api/gap-no-webhooks-for-uspto-docket-updates', './routes/gapFeat_no_webhooks_for_uspto_docket_updates.js'],
-  ['/api/gap-no-notifications-layer-for-filing-deadlines', './routes/gapFeat_no_notifications_layer_for_filing_deadlines.js'],
-];
-for (const [mountPath, modPath] of _gapMounts) {
-  import(modPath).then(m => app.use(mountPath, m.default || m)).catch(() => {});
+if (process.env.ENABLE_GENERATED_ROUTES === 'true' && process.env.NODE_ENV !== 'production') {
+  const customRoutes = [
+    ['/api/cf-agentic-patent-prosecution', './routes/customFeat01_AgenticPatentProsecution.js'],
+    ['/api/cf-novelty-scoring-engine', './routes/customFeat02_NoveltyScoringEngine.js'],
+    ['/api/cf-competitor-threat-intelligence', './routes/customFeat03_CompetitorThreatIntelligence.js'],
+    ['/api/cf-international-filing-optimizer', './routes/customFeat04_InternationalFilingOptimizer.js'],
+    ['/api/cf-claim-infringement-checker', './routes/customFeat05_ClaimInfringementChecker.js']
+  ];
+  for (const [mountPath, modulePath] of customRoutes) {
+    const module = await import(modulePath);
+    app.use(mountPath, module.default);
+  }
 }
 
 app.listen(PORT, () => {
