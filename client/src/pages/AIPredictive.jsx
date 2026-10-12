@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import api from '../services/api';
 import AIResultDisplay from '../components/AIResultDisplay';
+import { predictivePresets } from './aiPredictivePresets';
 
 const TOOLS = [
   { id: 'claim-broadness', label: 'Claim Broadness Score', endpoint: '/ai/claim-broadness-score' },
@@ -20,6 +21,7 @@ export default function AIPredictive() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [presetNote, setPresetNote] = useState('');
 
   const [claim, setClaim] = useState({
     claim_text: '',
@@ -73,6 +75,15 @@ export default function AIPredictive() {
     geography: 'global',
     comparable_deals: '',
   });
+
+  const applyPreset = ({ values, missingPrerequisite }) => {
+    const setters = { 'claim-broadness': setClaim, 'rejection-predict': setRejection, 'infringement-risk': setInfringe, 'market-threat': setMarketThreat, 'competitor-track': setCompetitorTrack, 'uspto-status': setUspto, 'pct-coordinator': setPct, 'literature-search': setLit, 'inventor-tracking': setInventor, licensing: setLicensing };
+    setters[activeTool]((current) => activeTool === 'uspto-status'
+      ? { ...values, application_number: current.application_number, patent_number: current.patent_number }
+      : activeTool === 'inventor-tracking' ? { ...values, inventor_name: current.inventor_name } : values);
+    setResult(null); setError('');
+    setPresetNote(missingPrerequisite || 'Example fields filled. Review the information before running AI.');
+  };
 
   const run = async () => {
     setLoading(true);
@@ -136,7 +147,7 @@ export default function AIPredictive() {
       }
       const res = await api.post(tool.endpoint, body);
       const data = res.data;
-      setResult({ success: true, content: data.content || data.result || data.analysis || JSON.stringify(data, null, 2), model: data.model, raw: data });
+      setResult({ success: data.success !== false, result: data.result || data.error, model: data.model, raw: data });
     } catch (err) {
       const status = err.response?.status;
       const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'AI request failed';
@@ -167,7 +178,7 @@ export default function AIPredictive() {
           <button
             key={t.id}
             className={`btn ${activeTool === t.id ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => { setActiveTool(t.id); setResult(null); setError(''); }}
+            onClick={() => { setActiveTool(t.id); setResult(null); setError(''); setPresetNote(''); }}
           >
             {t.label}
           </button>
@@ -175,6 +186,8 @@ export default function AIPredictive() {
       </div>
 
       <div className="card" style={{ padding: 24, marginBottom: 16 }}>
+        <div className="ai-actions" style={{ marginBottom: 16, flexWrap: 'wrap' }}>{predictivePresets(activeTool).map((preset) => <button type="button" key={preset.label} className="btn btn-secondary btn-sm" disabled={loading} onClick={() => applyPreset(preset)}>{preset.label}</button>)}</div>
+        {presetNote && <p role="status">{presetNote}</p>}
         {activeTool === 'claim-broadness' && (
           <>
             <h3>Claim Broadness Score</h3>

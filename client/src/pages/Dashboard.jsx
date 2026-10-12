@@ -12,8 +12,11 @@ export default function Dashboard() {
       const results = {};
       for (const f of features) {
         try {
-          const res = await api.get(f.apiPath);
-          results[f.key] = res.data.length;
+          const res = await api.get(f.apiPath, { params: { page: 1, limit: 20 } });
+          const payload = res.data;
+          results[f.key] = Number.isFinite(Number(payload?.total))
+            ? Number(payload.total)
+            : Array.isArray(payload?.data) ? payload.data.length : Array.isArray(payload) ? payload.length : 0;
         } catch {
           results[f.key] = 0;
         }

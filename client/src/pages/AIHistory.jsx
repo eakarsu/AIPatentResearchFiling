@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import AIReport from '../components/AIReport';
 
 export default function AIHistory() {
   const navigate = useNavigate();
@@ -16,10 +17,11 @@ export default function AIHistory() {
     try {
       const res = await api.get('/ai/history', { params: { page: p, limit: 20 } });
       const d = res.data;
-      setItems(d.data || []);
-      setPage(d.page || 1);
-      setTotalPages(d.totalPages || 1);
-      setTotal(d.total || 0);
+      const rows = Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : [];
+      setItems(rows);
+      setPage(Number(d?.page ?? d?.pagination?.page) || 1);
+      setTotalPages(Number(d?.totalPages ?? d?.pagination?.totalPages) || 1);
+      setTotal(Number(d?.total ?? d?.pagination?.total) || rows.length);
     } catch (err) {
       console.error(err);
     } finally {
@@ -116,66 +118,7 @@ export default function AIHistory() {
                 </span>
               </div>
 
-              {/* Structured JSON display if available */}
-              {selected.result_json && (() => {
-                let parsed;
-                try { parsed = JSON.parse(selected.result_json); } catch { parsed = selected.result_json; }
-                return (
-                  <div style={{ marginBottom: '16px' }}>
-                    {parsed?.novelty_score !== undefined && (
-                      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                        <div style={{ background: 'rgba(34,197,94,0.1)', padding: '12px 20px', borderRadius: '8px', textAlign: 'center' }}>
-                          <div style={{ fontSize: '28px', fontWeight: 700, color: '#22c55e' }}>{parsed.novelty_score}</div>
-                          <div style={{ fontSize: '11px', color: '#888' }}>Novelty Score</div>
-                        </div>
-                        {parsed.relevant_patents?.length > 0 && (
-                          <div style={{ background: 'rgba(99,102,241,0.1)', padding: '12px 20px', borderRadius: '8px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#6366f1' }}>{parsed.relevant_patents.length}</div>
-                            <div style={{ fontSize: '11px', color: '#888' }}>Patents Found</div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {parsed?.relevant_patents?.length > 0 && (
-                      <div style={{ marginBottom: '12px' }}>
-                        <div style={{ fontWeight: 600, marginBottom: '8px' }}>Relevant Patents</div>
-                        {parsed.relevant_patents.map((p, i) => (
-                          <div key={i} style={{ background: 'var(--bg-input, #0d0d1a)', border: '1px solid var(--border)', borderRadius: '6px', padding: '10px 14px', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <div>
-                                <div style={{ color: '#a5b4fc', fontWeight: 700, fontSize: '12px' }}>{p.patent_number}</div>
-                                <div style={{ fontWeight: 600 }}>{p.title}</div>
-                                <div style={{ fontSize: '12px', color: '#ccc', marginTop: '4px' }}>{p.abstract}</div>
-                              </div>
-                              <div style={{ color: p.relevance_score >= 80 ? '#ef4444' : p.relevance_score >= 60 ? '#f59e0b' : '#22c55e', fontWeight: 700 }}>
-                                {p.relevance_score || p.similarity_score}%
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {parsed?.recommendations?.length > 0 && (
-                      <div>
-                        <div style={{ fontWeight: 600, marginBottom: '6px' }}>Recommendations</div>
-                        <ul style={{ paddingLeft: '20px', color: '#ccc' }}>
-                          {parsed.recommendations.map((r, i) => <li key={i}>{r}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* Raw text result */}
-              <details>
-                <summary style={{ cursor: 'pointer', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                  Raw AI Response
-                </summary>
-                <pre style={{ fontSize: '12px', color: '#ccc', overflow: 'auto', maxHeight: '300px', background: 'var(--bg-input, #0d0d1a)', padding: '12px', borderRadius: '4px', marginTop: '8px' }}>
-                  {selected.result}
-                </pre>
-              </details>
+              <AIReport response={selected.result_json ?? selected.result} title={`${formatEndpoint(selected.endpoint)} analysis`} model={selected.model} />
             </div>
           )}
 

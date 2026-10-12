@@ -29,13 +29,16 @@ export default function FeaturePage() {
       setLoading(true);
       const res = await api.get(feature.apiPath, { params: { page: p, limit: 20 } });
       const d = res.data;
-      if (d.data && d.totalPages !== undefined) {
+      if (Array.isArray(d?.data)) {
         setItems(d.data);
-        setPage(d.page);
-        setTotalPages(d.totalPages);
-        setTotal(d.total);
+        setPage(Number(d.page ?? d.pagination?.page) || p);
+        setTotalPages(Number(d.totalPages ?? d.pagination?.totalPages) || 1);
+        setTotal(Number(d.total ?? d.pagination?.total) || d.data.length);
       } else {
         setItems(Array.isArray(d) ? d : []);
+        setPage(1);
+        setTotalPages(1);
+        setTotal(Array.isArray(d) ? d.length : 0);
       }
     } catch (err) {
       console.error('Failed to fetch items:', err);
@@ -153,6 +156,12 @@ export default function FeaturePage() {
     return String(value);
   };
 
+  const promptPresets = [
+    { label: 'Novelty review', text: `Assess novelty for a patent application in ${feature.title.toLowerCase()}. The proposed invention combines sensor telemetry with a rule based anomaly detector. Compare the essential claim elements with known approaches, identify likely prior art gaps, and list evidence needed before filing. Distinguish assumptions from verified facts.` },
+    { label: 'Filing strategy', text: `Prepare a filing strategy for ${feature.title.toLowerCase()}. The applicant has a working prototype and wants US protection before a planned product demonstration. Identify claim scope options, key dates to confirm, disclosure risks, and questions for patent counsel. Do not assume a filing has occurred.` },
+    { label: 'Portfolio review', text: `Review a small ${feature.title.toLowerCase()} patent portfolio. Two applications are pending, a competitor announced a similar feature, and the team has limited review capacity. Prioritize follow-up research, ownership checks, and potential claim amendments; clearly flag missing records.` },
+  ];
+
   const isPriorArtOrSearch = ['prior-art', 'patent-search'].includes(featureKey);
 
   return (
@@ -195,6 +204,7 @@ export default function FeaturePage() {
           </span>
           <span style={{ fontSize: '14px', fontWeight: '600' }}>{feature.aiPromptLabel}</span>
         </div>
+        <div className="ai-actions" style={{ marginBottom: '12px', flexWrap: 'wrap' }}>{promptPresets.map(({ label, text }) => <button key={label} type="button" className="btn btn-secondary btn-sm" disabled={aiLoading} onClick={() => setAiPrompt(text)}>{label}</button>)}</div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <textarea
             value={aiPrompt}
@@ -243,7 +253,7 @@ export default function FeaturePage() {
               </div>
             </div>
 
-            {priorArtResults.relevant_patents?.length > 0 && (
+            {Array.isArray(priorArtResults.relevant_patents) && priorArtResults.relevant_patents.length > 0 && (
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ fontWeight: 600, marginBottom: '12px', fontSize: '14px' }}>Relevant Prior Art Patents</div>
                 <div style={{ display: 'grid', gap: '10px' }}>
@@ -278,7 +288,7 @@ export default function FeaturePage() {
               </div>
             )}
 
-            {priorArtResults.recommendations?.length > 0 && (
+            {Array.isArray(priorArtResults.recommendations) && priorArtResults.recommendations.length > 0 && (
               <div>
                 <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>Recommendations</div>
                 <ul style={{ paddingLeft: '20px', color: '#ccc' }}>

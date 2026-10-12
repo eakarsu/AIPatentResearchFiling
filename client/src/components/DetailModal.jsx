@@ -1,6 +1,7 @@
 import React from 'react';
 import { getBadgeClass } from '../services/features';
 import AIResultDisplay from './AIResultDisplay';
+import AIReport from './AIReport';
 
 export default function DetailModal({ item, feature, onClose, onEdit, onDelete, onAIAnalyze, aiResult, aiLoading }) {
   const formatLabel = (key) => {
@@ -9,6 +10,7 @@ export default function DetailModal({ item, feature, onClose, onEdit, onDelete, 
 
   const formatValue = (key, value) => {
     if (value === null || value === undefined) return '-';
+    if (key === 'ai_analysis' || key === 'ai_summary') return <AIReport response={value} title={formatLabel(key)} />;
     if (typeof value === 'boolean') return value ? 'Yes' : 'No';
     if (key === 'status' || key === 'risk_level' || key === 'threat_level' || key === 'priority' || key === 'monitoring_status') {
       return <span className={`badge ${getBadgeClass(value)}`}>{String(value).replace(/_/g, ' ')}</span>;
@@ -44,21 +46,13 @@ export default function DetailModal({ item, feature, onClose, onEdit, onDelete, 
             {feature.detailFields.map(key => (
               <div key={key} className={`detail-field ${isLongField(key) ? 'full' : ''}`}>
                 <span className="detail-label">{formatLabel(key)}</span>
-                <span className="detail-value">{formatValue(key, item[key])}</span>
+                <div className="detail-value">{formatValue(key, item[key])}</div>
               </div>
             ))}
           </div>
 
-          {item.ai_summary && (
-            <div className="ai-result-container">
-              <div className="ai-result-header">
-                <span className="ai-result-badge">AI Summary</span>
-              </div>
-              <div className="ai-result-content">
-                <p>{item.ai_summary}</p>
-              </div>
-            </div>
-          )}
+          {item.ai_summary != null && !feature.detailFields.includes('ai_summary') && <AIReport response={item.ai_summary} title="AI Summary" />}
+          {item.ai_analysis != null && !feature.detailFields.includes('ai_analysis') && <AIReport response={item.ai_analysis} title="Saved AI analysis" />}
 
           {aiResult && <AIResultDisplay result={aiResult} />}
         </div>

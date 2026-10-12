@@ -8,8 +8,15 @@ export default function Login({ onLogin }) {
   const [loading, setLoading] = useState(false);
 
   const handleAutoFill = () => {
-    setEmail(import.meta.env.VITE_DEMO_EMAIL || '');
-    setPassword(import.meta.env.VITE_DEMO_PASSWORD || '');
+    const configuredEmail = import.meta.env.VITE_DEMO_EMAIL;
+    const configuredPassword = import.meta.env.VITE_DEMO_PASSWORD;
+    if (!configuredEmail || !configuredPassword) {
+      setError('Demo credentials are not configured for this client. Ask the administrator for access.');
+      return;
+    }
+    setError('');
+    setEmail(configuredEmail);
+    setPassword(configuredPassword);
   };
 
   const handleSubmit = async (e) => {
@@ -68,7 +75,7 @@ export default function Login({ onLogin }) {
           </button>
 
           <button type="button" className="btn btn-auto-fill" onClick={handleAutoFill}>
-            Auto Fill Demo Credentials
+            Fill Demo Credentials
           </button>
         </form>
       </div>

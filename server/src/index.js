@@ -1,3 +1,8 @@
+import { authenticate as aiWorkspaceDependency1 } from "./middleware/auth.js";
+import aiWorkspaceDependency2 from "./models/db.js";
+import aiWorkspaceDependency3 from "../aiWorkspaceAdapters.cjs";
+import aiWorkspaceDependency4 from "../aiWorkspace.cjs";
+import { readFileSync as readAIWorkspaceFile } from 'node:fs';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -36,7 +41,13 @@ if ((process.env.JWT_SECRET || '').length < 32 || !process.env.GOVERNANCE_TENANT
 }
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      scriptSrcAttr: ["'unsafe-inline'"],
+    },
+  },
+}));
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
   credentials: true,
@@ -82,6 +93,15 @@ if (process.env.ENABLE_GENERATED_ROUTES === 'true' && process.env.NODE_ENV !== '
   }
 }
 
+
+// Advisory AI reports only; native execution and approval routes stay unchanged.
+const aiWorkspaceSupport = aiWorkspaceDependency3;
+const aiWorkspaceFeatures = JSON.parse(readAIWorkspaceFile(new URL("../aiWorkspaceFeatures.json", import.meta.url), 'utf8'));
+const aiWorkspaceDatabase = aiWorkspaceDependency2;
+app.use('/api/report-workspace', aiWorkspaceDependency4.createAIWorkspaceRouter({
+  pool: aiWorkspaceDatabase, authenticateToken: aiWorkspaceDependency1,
+  aiRateLimiter: aiWorkspaceSupport.createWorkspaceLimiter(), features: aiWorkspaceFeatures,
+}));
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
